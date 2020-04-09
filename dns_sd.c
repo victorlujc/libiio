@@ -91,20 +91,20 @@ static int dnssd_fill_context_info(struct iio_context_info *info,
 	serial = iio_context_get_attr_value(ctx, "hw_serial");
 
 	if (hw_model && serial) {
-		snprintf(description, sizeof(description), "%s (%s), serial=%s",
+		iio_snprintf(description, sizeof(description), "%s (%s), serial=%s",
 				addr_str, hw_model, serial);
 	} else if (hw_model) {
-		snprintf(description, sizeof(description), "%s %s", addr_str, hw_model);
+		iio_snprintf(description, sizeof(description), "%s %s", addr_str, hw_model);
 	} else if (serial) {
-		snprintf(description, sizeof(description), "%s %s", addr_str, serial);
+		iio_snprintf(description, sizeof(description), "%s %s", addr_str, serial);
 	} else if (ctx->nb_devices == 0) {
-		snprintf(description, sizeof(description), "%s", ctx->description);
+		iio_snprintf(description, sizeof(description), "%s", ctx->description);
 	} else {
-		snprintf(description, sizeof(description), "%s (", addr_str);
+		iio_snprintf(description, sizeof(description), "%s (", addr_str);
 		p = description + strlen(description);
 		for (i = 0; i < ctx->nb_devices - 1; i++) {
 			if (ctx->devices[i]->name) {
-				snprintf(p, sizeof(description) - strlen(description) -1,
+				iio_snprintf(p, sizeof(description) - strlen(description) -1,
 						"%s,",  ctx->devices[i]->name);
 				p += strlen(p);
 			}

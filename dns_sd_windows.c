@@ -30,9 +30,9 @@ ipv4_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in* 
     int len = 0;
     if (ret == 0) {
         if (addr->sin_port != 0)
-            len = snprintf(buffer, capacity, "%s:%s", host, service);
+            len = iio_snprintf(buffer, capacity, "%s:%s", host, service);
         else
-            len = snprintf(buffer, capacity, "%s", host);
+            len = iio_snprintf(buffer, capacity, "%s", host);
     }
     if (len >= (int)capacity)
         len = (int)capacity - 1;
@@ -50,9 +50,9 @@ ipv6_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in6*
     int len = 0;
     if (ret == 0) {
         if (addr->sin6_port != 0)
-            len = snprintf(buffer, capacity, "[%s]:%s", host, service);
+            len = iio_snprintf(buffer, capacity, "[%s]:%s", host, service);
         else
-            len = snprintf(buffer, capacity, "%s", host);
+            len = iio_snprintf(buffer, capacity, "%s", host);
     }
     if (len >= (int)capacity)
         len = (int)capacity - 1;
@@ -126,7 +126,7 @@ query_callback(int sock, const struct sockaddr* from, size_t addrlen,
     strncpy(dd->addr_str, fromaddrstr.str, ip_addr_len);
 
     // no hostname given by this library ?
-    dd->hostname = strdup("");
+    dd->hostname = _strdup("");
 
     DEBUG("DNS SD: added %s (%s:%d)\n", hostname, dd->addr_str, port);
 
