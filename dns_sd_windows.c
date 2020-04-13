@@ -44,7 +44,6 @@ query_callback(int sock, const struct sockaddr* from, size_t addrlen,
 
 
 	char addrbuffer[64];
-	char hostbuffer[64];
 	char servicebuffer[64];
 	char namebuffer[256];
 
@@ -54,42 +53,28 @@ query_callback(int sock, const struct sockaddr* from, size_t addrlen,
 		goto quit;
 	}
 
-	const char* entrytype = (entry == MDNS_ENTRYTYPE_ANSWER) ? "answer" :
-		((entry == MDNS_ENTRYTYPE_AUTHORITY) ? "authority" : "additional");
-
-	if (rtype != MDNS_RECORDTYPE_PTR)
+	if (rtype != MDNS_RECORDTYPE_SRV)
 		goto quit;
 
-	mdns_string_t namestr = mdns_record_parse_ptr(data, size, offset, length,
-		namebuffer, sizeof(namebuffer));
-
-	// find iio in mdns response 
-	const char* found = strstr(namestr.str, "iio");
-	if (found == NULL)
-		goto quit;
-
-	DEBUG("Found IIO in DNS-SD response\n");
-
-	// get ip address and hostname
 	getnameinfo((const struct sockaddr*)from, addrlen,
 		addrbuffer, NI_MAXHOST, servicebuffer, NI_MAXSERV,
 		NI_NUMERICSERV | NI_NUMERICHOST);
 
-	getnameinfo((const struct sockaddr*)from, addrlen,
-		hostbuffer, NI_MAXHOST, servicebuffer, NI_MAXSERV,
-		NULL);
-
-	/* Set properties on the last element on the list. */
-	while (dd->next)
-		dd = dd->next;
-
-	DEBUG("%s : %s PTR %.*s rclass 0x%x ttl %u length %d\n",
+	mdns_record_srv_t srv = mdns_record_parse_srv(data, size, offset, length,
+		namebuffer, sizeof(namebuffer));
+	DEBUG("%s : %s SRV %.*s priority %d weight %d port %d\n",
 		addrbuffer, entrytype,
-		MDNS_STRING_FORMAT(namestr), rclass, ttl, (int)length);
+		MDNS_STRING_FORMAT(srv.name), srv.priority, srv.weight, srv.port);
 
-	dd->hostname = _strdup(hostbuffer);
+	if (srv.name.length > 1)
+	{
+		dd->hostname = malloc(srv.name.length);
+		strncpy(dd->hostname, srv.name.str, srv.name.length);
+		dd->hostname[srv.name.length - 1] = 0;
+	}
 	strcpy(dd->addr_str, addrbuffer);
-	dd->port = IIOD_PORT;  // hardcode the iiod port ?
+	dd->port = srv.port;
+
 
 	DEBUG("DNS SD: added %s (%s:%d)\n", dd->hostname, dd->addr_str, dd->port);
 
@@ -135,16 +120,23 @@ int dnssd_find_hosts(struct dns_sd_discovery_data** ddata)
 	}
 	DEBUG("Opened IPv4 socket for mDNS/DNS-SD\n");
 
-	if (mdns_discovery_send(sock)) {
-		ERROR("Failed to send DNS-DS discovery: %s\n", strerror(errno));
+	const char service[] = "_iio._tcp.local.";
+
+	DEBUG("Sending mDNS query: %s\n", service);
+	if (mdns_query_send(sock, MDNS_RECORDTYPE_PTR,
+		service, strlen(service),
+		buffer, capacity)) {
+		ERROR("Failed to send mDNS query: %s\n", strerror(errno));
 		goto quit;
 	}
 
-	DEBUG("Reading DNS-SD replies\n");
-	for (int i = 0; i < 10; ++i) {
+	DEBUG("Reading mDNS replies\n");
+	for (int i = 0; i < 5; ++i) {
 		do {
-			records = mdns_discovery_recv(sock, buffer, capacity, query_callback, d);
+			records = mdns_query_recv(sock, buffer, capacity, query_callback, d, 1);
 		} while (records);
+		if (records)
+			i = 0;
 		Sleep(100);
 	}
 
